@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TI Projekt</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Two side pushdown automata</h1>
+        <h2>Grammar {ww | w ∈ {a, b}
+            ∗}. </h2>
+        <label>Word: <input name="word" class="js-word" value="abbabb"></label>
+        <button class="btn btn-primary js-btn">Calculate</button>
+        <button class="btn btn-primary js-btn-slow">Animate</button>
+        <div class="js-answer alert"></div>
+        <div class="js-wrapper">
+
+        </div>
+
+        <div class="js-template " style="display: none;">
+            <h4 class="js-step"></h4>
+            <h4 class="js-state"></h4>
+            <h4 class="js-word"></h4>
+            <table border="3" class="js-table col-sm-3">
+                <tr class="js-template-row">
+                </tr>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
+
+<script>
+    $(document).ready(function () {
+
+        // pocatecni stav
+        const STATE_Q0 = 'Q0';
+
+        const STATE_QODD = 'QODD';
+        const STATE_QEVEN = 'QEVEN';
+        const STATE_QI = 'QI';
+        const STATE_QR = 'QR';
+        const STATE_QP = 'QP';
+
+        // koncove stavy
+        const STATE_QT = 'QT';
+        const STATE_QF = 'QF';
+
+        class Stack {
+            constructor(length) {
+                this.length = length;
+                this.currentIndex = 0;
+                this.stack = ['Z'];
+            }
+
+            pop() {
+                if (this.currentIndex >= 0) {
+                    this.currentIndex -= 1;
+                    return this.stack[this.currentIndex+1]
+                }
+            }
+
+            push(value) {
+                if (this.currentIndex < this.length) {
+                    this.currentIndex += 1;
+                    this.stack[this.currentIndex] = value;
+                }
+            }
+
+            getHtml() {
+                let html = '';
+                for (let i = this.length; i >= 0; i--) {
+                    if (i > this.currentIndex) {
+                        html += '<tr><td>-</td><tr>';
+                    } else {
+                        html += '<tr><td>' + this.stack[i].toUpperCase() + '</td><tr>';
+                    }
+                }
+                return html;
+            }
+        }
+
+        class PushDownAutomata {
+
+            constructor(word) {
+                this.word = word;
+                let stackLength = word.length + 2; // +1 for Z,E
+                this.word  = '{' + this.word  + '}';
+                this.stack = new Stack(stackLength);
+                this.currentIndex = 0;
+                this.stackState = STATE_Q0;
+                this.step = 0;
+            }
+
+            handleState() {
+                switch (this.stackState) {
+                    case STATE_Q0:
+                        this.currentIndex++;
+                        this.stackState = STATE_QODD;
+                        break;
+
+                    case STATE_QODD:
+                        if (this.word[this.currentIndex] !== '}') {
+                            this.stack.push(this.word[this.currentIndex]);
+                            this.stackState = STATE_QEVEN;
+                            this.currentIndex++;
+                        } else {
+                            this.stackState = STATE_QR;
+                            this.currentIndex--;
+                        }
+                        break;
+
+                    case STATE_QEVEN:
+                        if (this.word[this.currentIndex] !== '}') {
+                            this.stackState = STATE_QODD;
+                            this.currentIndex++;
+                        } else {
+                            this.stackState = STATE_QF;
+                            return false;
+                        }
+                        break;
+
+                    case STATE_QR:
+                        let stackLetter = this.stack.pop();
+                        if (stackLetter !== 'Z' && stackLetter !== 'E') {
+                            this.currentIndex--;
+                        } else {
+                            if (stackLetter === 'Z') {
+                                this.stack.push(stackLetter);
+                                this.stackState = STATE_QI;
+                            } else {
+                                // stackLetter === 'E'
+                                this.currentIndex++;
+                                this.stackState = STATE_QP;
+                            }
+                        }
+                        break;
+
+                    case STATE_QI:
+                        if (this.word[this.currentIndex] !== '{') {
+                            this.stack.push(this.word[this.currentIndex]);
+                            this.currentIndex--;
+                        } else {
+                            this.stack.push('E');
+                            this.currentIndex++;
+                            this.stackState = STATE_QODD;
+                        }
+                        break;
+
+                    case STATE_QP:
+                        let stackC = this.stack.pop();
+                        if (stackC !== 'Z') {
+                            if (stackC === this.word[this.currentIndex]) {
+                                this.currentIndex++;
+                            } else {
+                                this.stackState = STATE_QF;
+                                return false;
+                            }
+                        } else {
+                            this.stackState = STATE_QT;
+                            this.step++;
+                            return false;
+                        }
+                    }
+                    this.step++;
+                    return true;
+                }
+
+                run(slow) {
+                    this.draw(slow);
+                    while (this.handleState()) {
+                        this.draw(slow);
+                    }
+                    this.draw(slow);
+                    if (slow) {
+
+                        for (let i = 0; i <= this.step; i++) {
+                            setTimeout(function (){
+                                if (i > 0) {
+                                    $('.js-draw-' + (i - 1)).addClass('d-none');
+                                }
+                                $('.js-draw-' + (i)).removeClass('d-none');
+                                }, 1000 * i
+                            );
+                        }
+                    }
+                    if (this.stackState === STATE_QT) {
+                        $('.js-answer').text('Word belongs to Language')
+                            .addClass('alert-success')
+                            .removeClass('alert-error');
+                    } else {
+                        $('.js-answer').text('Word does not belongs to Language')
+                            .addClass('alert-error')
+                            .removeClass('alert-success');
+                    }
+                }
+
+            draw(hide) {
+                let divWrapper = document.createElement("div");
+                if (hide) {
+                    $(divWrapper).addClass('d-none');
+                }
+                $(divWrapper).addClass('js-draw-' + this.step);
+                // $(divWrapper).addClass('col-md-3');
+                $(divWrapper).addClass('border border-secondary');
+                $(divWrapper).addClass('float-left');
+                let tableCopy = $('.js-template .js-table').clone();
+                let rowsHtml = this.stack.getHtml();
+                tableCopy.append(rowsHtml);
+
+                let stepHtml = $('.js-template .js-step').clone();
+                $(stepHtml).text('Krok: ' + (parseInt(this.step) + 1));
+
+                let stateHtml = $('.js-template .js-state').clone();
+                $(stateHtml).text('Stav: ' + this.stackState);
+
+                let stateWord = $('.js-template .js-word').clone();
+                let wordText = '';
+
+                for (let i = 0; i < this.word.length; i++) {
+                    if (i !== this.currentIndex) {
+                        wordText += this.word[i];
+                    } else {
+                        wordText += '<span style="color: red;">' + this.word[i] + '</span>';
+                    }
+                }
+                wordText = '<span>' + wordText + '</span>';
+                $(stateWord).append('Slovo: ' + wordText);
+                $(divWrapper)
+                    .append(stepHtml)
+                    .append(stateHtml)
+                    .append(stateWord)
+                    .append(tableCopy)
+                    .append('<hr/>');
+                $('.js-wrapper').append(divWrapper);
+                return true;
+            }
+        }
+
+        $('.js-btn').on('click', function (){
+            $('.js-wrapper').empty();
+            let word = $('.js-word').val();
+            let automata = new PushDownAutomata(word);
+            automata.run();
+        });
+
+        $('.js-btn-slow').on('click', function (){
+            $('.js-wrapper').empty();
+            let word = $('.js-word').val();
+            let automata = new PushDownAutomata(word);
+            automata.run(true);
+        });
+    });
+
+
+</script>
